@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Entrata1</title>
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+  
+    <style>
+      #minimappa {
+        position: fixed;
+        top: 15px;
+        right: 15px;
+        width: 220px;
+        z-index: 9999;
+        border: 2px solid white;
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.45);
+        box-shadow: 0 0 12px rgba(0,0,0,0.7);
+      }
+
+      #minimappa img {
+        display: block;
+        width: 100%;
+      }
+
+      #puntino-posizione {
+        position: absolute;
+        width: 13px;
+        height: 13px;
+        background: red;
+        border: 2px solid white;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 8px red;
+      }
+
+      #audio-ui {
+        position: fixed;
+        left: 15px;
+        bottom: 15px;
+        z-index: 10000;
+        max-width: 360px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        color: white;
+        background: rgba(0, 0, 0, 0.65);
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.35;
+        box-shadow: 0 0 12px rgba(0,0,0,0.6);
+      }
+
+      #stop-audio {
+        margin-top: 8px;
+        padding: 6px 10px;
+        border: 1px solid white;
+        border-radius: 6px;
+        color: white;
+        background: rgba(120, 0, 0, 0.8);
+        cursor: pointer;
+      }
+
+      #stop-audio:hover {
+        background: rgba(180, 0, 0, 0.9);
+      }
+    </style>
+
+  
+    <script>
+      const RVA_MAP_POSITIONS = {
+        "index": { left: "51.8%", top: "72.2%" },
+        "Architrave": { left: "69.5%", top: "72.1%" },
+        "Reperti_conservati": { left: "69.3%", top: "58.8%" },
+        "Zona1": { left: "31.8%", top: "53.6%" },
+        "Zona2": { left: "68.0%", top: "42.4%" },
+        "Centrale": { left: "53.2%", top: "37.8%" },
+        "Entrata1": { left: "30.2%", top: "32.4%" },
+        "Entrata2": { left: "67.5%", top: "24.9%" },
+        "Teatro": { left: "48.1%", top: "23.2%" }
+      };
+
+      function aggiornaMessaggioAudio(testo) {
+        const msg = document.getElementById("audio-message");
+        if (msg) msg.textContent = testo;
+      }
+
+      window.audioCorrenteRVA = null;
+
+      function fermaAudioRVA() {
+        if (window.audioCorrenteRVA) {
+          window.audioCorrenteRVA.pause();
+          window.audioCorrenteRVA.currentTime = 0;
+          window.audioCorrenteRVA = null;
+        }
+        aggiornaMessaggioAudio("🎧 Punta un piedistallo per 1 secondo per ascoltare l'audio guida.");
+      }
+
+      AFRAME.registerComponent('audio-guida', {
+        schema: {
+          src: { type: 'string' },
+          title: { type: 'string', default: 'Audio guida' }
+        },
+
+        init: function () {
+          const el = this.el;
+          const data = this.data;
+          this.audio = new Audio(data.src);
+          this.audio.preload = 'auto';
+          this.audio.volume = 1.0;
+
+          el.setAttribute('title', data.title);
+
+          el.addEventListener('mouseenter', function () {
+            aggiornaMessaggioAudio("🎧 Mantieni il puntatore su: " + data.title + " per ascoltare.");
+          });
+
+          el.addEventListener('mouseleave', function () {
+            if (!window.audioCorrenteRVA) {
+              aggiornaMessaggioAudio("🎧 Punta un piedistallo per 1 secondo per ascoltare l'audio guida.");
+            }
+          });
+
+          el.addEventListener('click', () => {
+            if (window.audioCorrenteRVA && window.audioCorrenteRVA !== this.audio) {
+              window.audioCorrenteRVA.pause();
+              window.audioCorrenteRVA.currentTime = 0;
+            }
+            window.audioCorrenteRVA = this.audio;
+            this.audio.currentTime = 0;
+            this.audio.play().then(() => {
+              aggiornaMessaggioAudio("▶ Audio in riproduzione: " + data.title);
+            }).catch(() => {
+              aggiornaMessaggioAudio("Per avviare l'audio, clicca/tocca il piedistallo una volta.");
+            });
+          });
+
+          this.audio.addEventListener('ended', function () {
+            if (window.audioCorrenteRVA === this) {
+              window.audioCorrenteRVA = null;
+              aggiornaMessaggioAudio("🎧 Punta un piedistallo per 1 secondo per ascoltare l'audio guida.");
+            }
+          });
+        },
+
+        remove: function () {
+          if (this.audio) {
+            this.audio.pause();
+            this.audio.currentTime = 0;
+          }
+        }
+      });
+
+      document.addEventListener('DOMContentLoaded', function () {
+        const room = document.body.dataset.room;
+        const pos = RVA_MAP_POSITIONS[room];
+        const dot = document.getElementById('puntino-posizione');
+        if (dot && pos) {
+          dot.style.left = pos.left;
+          dot.style.top = pos.top;
+        }
+        const stopButton = document.getElementById('stop-audio');
+        if (stopButton) {
+          stopButton.addEventListener('click', fermaAudioRVA);
+        }
+      });
+    </script>
+
+  </head>
+  <body data-room="Entrata1">
+
+    <!-- Minimappa in alto a destra -->
+    <div id="minimappa">
+      <img src="img/mappa2D.png" alt="Minimappa del sito archeologico">
+      <div id="puntino-posizione"></div>
+    </div>
+
+    <!-- Interfaccia audio guida -->
+    <div id="audio-ui">
+      <div id="audio-message">🎧 Punta un piedistallo per 1 secondo per ascoltare l'audio guida.</div>
+      <button id="stop-audio" type="button">Ferma audio</button>
+    </div>
+
+    <a-scene>
+      <!-- Immagine 360 della scena -->
+      <a-sky src="img/Entrata1.jpeg"></a-sky>
+
+      <!-- Camera + cursore -->
+      <a-entity id="rig" position="0 1.5 4">
+        <a-entity camera look-controls wasd-controls rotation="0 0 0" vertical-movement>
+          <a-entity
+            cursor="fuse: true; fuseTimeout: 1000"
+            position="0 0 -1"
+            geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+            material="color: brown; shader: flat">
+          </a-entity>
+        </a-entity>
+      </a-entity>
+
+      <!-- PORTALE 1: verso Zona1 -->
+      <a-entity class="portale" position="-2 1 12" link="href: Zona1.html">
+        <a-torus
+          color="#00CFFF"
+          radius="0.55"
+          radius-tubular="0.035"
+          animation="property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear">
+        </a-torus>
+
+        <a-plane
+          width="1.0"
+          height="1.0"
+          color="#001F33"
+          opacity="0.55"
+          side="double"
+          rotation="0 180 0">
+        </a-plane>
+
+        <a-text
+          value="Zona1"
+          align="center"
+          color="white"
+          position="0 -0.75 0.1"
+          width="2.8"
+          rotation="0 180 0">
+        </a-text>
+      </a-entity>
+
+      <!-- PORTALE 2: verso Teatro -->
+      <a-entity class="portale" position="8 1.6 6" link="href: Teatro.html">
+        <a-torus
+          color="#00CFFF"
+          radius="0.55"
+          radius-tubular="0.035"
+          animation="property: rotation; to: 0 360 0; loop: true; dur: 4000; easing: linear">
+        </a-torus>
+
+        <a-plane
+          width="1.0"
+          height="1.0"
+          color="#001F33"
+          opacity="0.55"
+          side="double"
+          rotation="0 -90 0">
+        </a-plane>
+
+        <a-text
+          value="Teatro"
+          align="center"
+          color="white"
+          position="0 -0.75 0.1"
+          width="2.8"
+          rotation="0 -90 0">
+        </a-text>
+      </a-entity>
+
+
+      <!-- Sposta i portali modificando position="x y z" -->
+    </a-scene>
+  </body>
+</html>
